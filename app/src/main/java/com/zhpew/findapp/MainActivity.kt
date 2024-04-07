@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.activity.compose.setContent
 import androidx.annotation.RequiresApi
@@ -15,37 +16,31 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
-import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.ViewModelProvider
 import com.google.accompanist.drawablepainter.rememberDrawablePainter
+import net.sourceforge.pinyin4j.PinyinHelper
+import net.sourceforge.pinyin4j.format.HanyuPinyinCaseType
+import net.sourceforge.pinyin4j.format.HanyuPinyinOutputFormat
+import net.sourceforge.pinyin4j.format.HanyuPinyinToneType
+import net.sourceforge.pinyin4j.format.exception.BadHanyuPinyinOutputFormatCombination
+import java.util.regex.Pattern
+
 
 class MainActivity : AppCompatActivity() {
-
-    private val colorList = arrayOf(
-        R.color.color_26AA89,
-        R.color.color_22856C,
-        R.color.color_E46962,
-        R.color.color_B63028,
-        R.color.color_EC928E
-    )
 
     private var originData: HashMap<String, ApplicationInfo> = HashMap()
     private val resultData: SnapshotStateList<ApplicationInfo> =
@@ -96,15 +91,14 @@ class MainActivity : AppCompatActivity() {
     @Composable
     fun Item(info: ApplicationInfo) {
         val icon = packageManager.getApplicationIcon(info.packageName)
-        val colorIndex = Math.random() * 5
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(90.dp)
-                .padding(start = 20.dp, end = 20.dp, top = 20.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 10.dp)
                 .background(
-                    color = colorResource(id = colorList[colorIndex.toInt()]),
+                    color = colorResource(id = R.color.color_EC928E),
                     shape = RoundedCornerShape(15)
                 )
                 .clickable {
@@ -130,26 +124,59 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    fun setData(list: List<ApplicationInfo>) {
+    private fun setData(list: List<ApplicationInfo>) {
+        val regex = ".*[\\u4e00-\\u9fa5]+.*"
+        val pattern = Pattern.compile(regex)
         for (info in list) {
             if (info.flags and ApplicationInfo.FLAG_SYSTEM == 0) {
-                val name = packageManager.getApplicationLabel(info).toString()
-                originData[name] = info
+                val intent = packageManager.getLaunchIntentForPackage(info.packageName)
+                intent?.let{
+                    var name = packageManager.getApplicationLabel(info).toString()
+                    val matcher = pattern.matcher(name);
+                    if(matcher.matches()){
+                        name += toPinyin(name)
+                    }
+                    originData[name] = info
+                }
             }
         }
     }
 
-    fun updateKeyword(key: String) {
+    private fun updateKeyword(key: String) {
         resultData.clear()
         if (key.isEmpty()) {
             return
         }
-        val next = getNext(key)
+        val next = getNext(key.lowercase())
         originData.forEach {
-            val name = it.key
+            val name = it.key.lowercase()
             if (isMatch(name, key, next)) {
                 resultData.add(it.value)
             }
         }
+    }
+
+    private fun toPinyin(chinese: String): String {
+        val format = HanyuPinyinOutputFormat()
+        format.caseType = HanyuPinyinCaseType.LOWERCASE
+        format.toneType = HanyuPinyinToneType.WITHOUT_TONE
+        val sb = StringBuilder()
+        val chars = chinese.toCharArray()
+        for (c in chars) {
+            if (Character.isWhitespace(c)) {
+                continue
+            }
+            if (c in '\u4e00'..'\u9fa5') {
+                try {
+                    val pinyinArray = PinyinHelper.toHanyuPinyinStringArray(c, format)
+                    sb.append(pinyinArray[0])
+                } catch (e: BadHanyuPinyinOutputFormatCombination) {
+                    e.printStackTrace()
+                }
+            } else {
+                sb.append(c)
+            }
+        }
+        return sb.toString()
     }
 }
