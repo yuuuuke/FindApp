@@ -20,12 +20,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusEvent
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -45,6 +47,7 @@ class MainActivity : AppCompatActivity() {
     private var originData: HashMap<String, ApplicationInfo> = HashMap()
     private val resultData: SnapshotStateList<ApplicationInfo> =
         mutableStateListOf<ApplicationInfo>()
+    val resume = mutableStateOf<Int>(0)
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
     @OptIn(ExperimentalMaterial3Api::class)
@@ -63,15 +66,28 @@ class MainActivity : AppCompatActivity() {
         val keyword = mutableStateOf<String>("")
 
         setContent {
+            val focusRequester = remember{
+                FocusRequester()
+            }
+            val keyboard = LocalSoftwareKeyboardController.current
+            LaunchedEffect(key1 = resume, block = {
+                focusRequester.requestFocus()
+                keyboard?.show()
+            })
             Column {
                 Box(modifier = Modifier.padding(15.dp), content = {
                     OutlinedTextField(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester),
                         textStyle = TextStyle(
                             fontSize = 15.sp,
                             textAlign = TextAlign.Justify
                         ),
                         value = keyword.value,
+                        placeholder = {
+                            Text(text = resume.value.toString())
+                        },
                         onValueChange = {
                             keyword.value = it
                             updateKeyword(it)
@@ -86,6 +102,12 @@ class MainActivity : AppCompatActivity() {
                 )
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        Log.v("zwp","onResume")
+        resume.value = resume.value +1
     }
 
     @Composable
