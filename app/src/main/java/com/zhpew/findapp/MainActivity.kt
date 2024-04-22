@@ -2,13 +2,17 @@ package com.zhpew.findapp
 
 import android.annotation.SuppressLint
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.View
 import androidx.activity.compose.setContent
+import androidx.annotation.MainThread
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.Image
@@ -41,15 +45,15 @@ import net.sourceforge.pinyin4j.format.HanyuPinyinToneType
 import net.sourceforge.pinyin4j.format.exception.BadHanyuPinyinOutputFormatCombination
 import java.util.regex.Pattern
 
-
 class MainActivity : AppCompatActivity() {
 
     private var originData: HashMap<String, ApplicationInfo> = HashMap()
     private val resultData: SnapshotStateList<ApplicationInfo> =
         mutableStateListOf<ApplicationInfo>()
-    val resume = mutableStateOf<Int>(0)
+    private val resume = mutableStateOf<Int>(0)
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private val mHandler = Handler(Looper.getMainLooper())
+
     @OptIn(ExperimentalMaterial3Api::class)
     @SuppressLint("QueryPermissionsNeeded")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -57,10 +61,8 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = Color.TRANSPARENT
         val flags = window.decorView.systemUiVisibility
         window.decorView.systemUiVisibility = flags or View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
-        val list = packageManager.getInstalledApplications(
-            PackageManager.ApplicationInfoFlags.of(
-                PackageManager.MATCH_UNINSTALLED_PACKAGES.toLong()
-            )
+        val list = packageManager.getInstalledPackages(
+            PackageManager.GET_META_DATA
         )
         setData(list)
         val keyword = mutableStateOf<String>("")
@@ -85,9 +87,6 @@ class MainActivity : AppCompatActivity() {
                             textAlign = TextAlign.Justify
                         ),
                         value = keyword.value,
-                        placeholder = {
-                            Text(text = resume.value.toString())
-                        },
                         onValueChange = {
                             keyword.value = it
                             updateKeyword(it)
@@ -106,7 +105,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        Log.v("zwp","onResume")
         resume.value = resume.value +1
     }
 
@@ -146,19 +144,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setData(list: List<ApplicationInfo>) {
+    private fun setData(list: List<PackageInfo>) {
         val regex = ".*[\\u4e00-\\u9fa5]+.*"
         val pattern = Pattern.compile(regex)
         for (info in list) {
-            if (info.flags and ApplicationInfo.FLAG_SYSTEM == 0) {
+            if (info.applicationInfo.flags and ApplicationInfo.FLAG_SYSTEM == 0) {
                 val intent = packageManager.getLaunchIntentForPackage(info.packageName)
                 intent?.let{
-                    var name = packageManager.getApplicationLabel(info).toString()
-                    val matcher = pattern.matcher(name);
+                    var name = packageManager.getApplicationLabel(info.applicationInfo).toString()
+                    val matcher = pattern.matcher(name)
                     if(matcher.matches()){
                         name += toPinyin(name)
                     }
-                    originData[name] = info
+                    originData[name] = info.applicationInfo
                 }
             }
         }
@@ -166,16 +164,20 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateKeyword(key: String) {
         resultData.clear()
+        mHandler.removeMessages(0)
         if (key.isEmpty()) {
             return
         }
-        val next = getNext(key.lowercase())
-        originData.forEach {
-            val name = it.key.lowercase()
-            if (isMatch(name, key, next)) {
-                resultData.add(it.value)
+        mHandler.postDelayed({
+            Log.v("zwp","1111111111111111111")
+            val next = getNext(key.lowercase())
+            originData.forEach {
+                val name = it.key.lowercase()
+                if (isMatch(name, key, next)) {
+                    resultData.add(it.value)
+                }
             }
-        }
+        },200)
     }
 
     private fun toPinyin(chinese: String): String {
