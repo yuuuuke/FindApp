@@ -169,11 +169,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
         mHandler.postDelayed({
-            Log.v("zwp","1111111111111111111")
             val next = getNext(key.lowercase())
             originData.forEach {
                 val name = it.key.lowercase()
-                if (isMatch(name, key, next)) {
+                if (isMatch(name, key.lowercase(), next)) {
                     resultData.add(it.value)
                 }
             }

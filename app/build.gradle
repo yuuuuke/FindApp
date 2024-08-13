@@ -19,19 +19,9 @@ android {
 
     signingConfigs {
         release {
-            v1SigningEnabled true
-            v2SigningEnabled true
-            keyAlias 'android.keystore'
-            keyPassword 'yaofangwang2016!@#'
-            storeFile getMyStoreFile()
-            storePassword 'yaofangwang2016!@#'
         }
 
         debug {
-            keyAlias 'android.keystore'
-            keyPassword 'yaofangwang2016!@#'
-            storeFile getMyStoreFile()
-            storePassword 'yaofangwang2016!@#'
         }
     }
 
